@@ -17,6 +17,21 @@ import { Orchestrator } from './modules/orchestrator/index.js';
 import { PumpFunService } from './modules/pumpfun/index.js';
 import { createServer } from './api/server.js';
 
+// Agent swarm
+import { Swarm, LLMClient } from './agents/index.js';
+import { ScoutAgent } from './agents/scout.js';
+import { AnalystAgent } from './agents/analyst.js';
+import { SentinelAgent } from './agents/sentinel.js';
+import { StrategistAgent } from './agents/strategist.js';
+import { ExecutorAgent } from './agents/executor-agent.js';
+import { MemoryAgent } from './agents/memory-agent.js';
+
+// Intelligence layer
+import { IntelBus } from './intelligence/intel-bus.js';
+import { DeployerScoreEngine } from './intelligence/deployer-scores.js';
+import { WalletGraph } from './intelligence/wallet-graph.js';
+import { PatternDatabase } from './intelligence/pattern-db.js';
+
 async function main(): Promise<void> {
   const logger = createLogger({ LOG_LEVEL: env.LOG_LEVEL, NODE_ENV: env.NODE_ENV });
   logger.info('ClawOps starting');
@@ -46,7 +61,7 @@ async function main(): Promise<void> {
     },
   };
 
-  // Services
+  // Core services
   const eventBus = new EventBus(logger);
   const stateEngine = new StateEngine(container, eventBus);
   const policyEngine = new PolicyEngine(container, stateEngine, eventBus);
@@ -62,11 +77,101 @@ async function main(): Promise<void> {
     executionEngine,
   );
 
-  // Start services in order
+  // Start core services
   await stateEngine.start();
   await policyEngine.start();
   await eventIngestion.start();
   await orchestrator.start();
+
+  // --- Agent Swarm ---
+  let swarm: Swarm | null = null;
+
+  if (env.SWARM_ENABLED && env.LLM_API_KEY) {
+    logger.info('Swarm mode enabled — initializing agents');
+
+    // LLM client
+    const llm = new LLMClient(
+      {
+        apiKey: env.LLM_API_KEY,
+        model: env.LLM_MODEL,
+        maxTokens: env.LLM_MAX_TOKENS,
+      },
+      logger,
+    );
+
+    // Intelligence layer
+    const intelBus = new IntelBus(
+      redis,
+      { nodeId: env.NODE_ID, channelPrefix: env.INTEL_CHANNEL_PREFIX },
+      logger,
+    );
+    const deployerScores = new DeployerScoreEngine(redis, logger);
+    const walletGraph = new WalletGraph(redis, logger);
+    const patternDb = new PatternDatabase(redis, logger);
+
+    // Create agents
+    const scout = new ScoutAgent(
+      container,
+      eventBus,
+      { role: 'scout', tickIntervalMs: 3000, enabled: true },
+      { intelBus, deployerScores, walletGraph, pumpfun },
+    );
+
+    const analyst = new AnalystAgent(
+      container,
+      eventBus,
+      { role: 'analyst', tickIntervalMs: 2000, enabled: true },
+      { llm, deployerScores, walletGraph, patternDb, pumpfun },
+    );
+
+    const sentinel = new SentinelAgent(
+      container,
+      eventBus,
+      { role: 'sentinel', tickIntervalMs: 5000, enabled: true },
+      { llm, stateEngine, walletGraph, intelBus, pumpfun },
+    );
+
+    const strategist = new StrategistAgent(
+      container,
+      eventBus,
+      { role: 'strategist', tickIntervalMs: 2000, enabled: true },
+      { llm, stateEngine, patternDb },
+    );
+
+    const executor = new ExecutorAgent(
+      container,
+      eventBus,
+      { role: 'executor', tickIntervalMs: 1000, enabled: true },
+      { stateEngine, executionEngine, riskEngine, pumpfun },
+    );
+
+    const memory = new MemoryAgent(
+      container,
+      eventBus,
+      { role: 'memory', tickIntervalMs: 10000, enabled: true },
+      { patternDb, deployerScores, stateEngine },
+    );
+
+    // Assemble swarm
+    swarm = new Swarm(logger);
+    swarm.register(scout);
+    swarm.register(analyst);
+    swarm.register(sentinel);
+    swarm.register(strategist);
+    swarm.register(executor);
+    swarm.register(memory);
+
+    // Start intelligence bus and swarm
+    await intelBus.startConsuming();
+    await swarm.start();
+
+    logger.info(
+      { nodeId: env.NODE_ID, agentCount: 6 },
+      'Agent swarm operational',
+    );
+  } else {
+    logger.info('Swarm mode disabled — running in policy-only mode');
+  }
 
   // API server
   const server = await createServer({ container, policyEngine, eventIngestion, pumpfun, stateEngine });
@@ -78,6 +183,11 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'Shutdown signal received');
 
     await server.close();
+
+    if (swarm) {
+      await swarm.stop();
+    }
+
     await orchestrator.stop();
     await eventIngestion.stop();
     await policyEngine.stop();

@@ -21,6 +21,17 @@ const envSchema = z.object({
   MAX_PRIORITY_FEE_LAMPORTS: z.coerce.number().int().min(0).default(100000),
   EXECUTION_COOLDOWN_MS: z.coerce.number().int().min(0).default(5000),
 
+  // LLM
+  LLM_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
+  LLM_API_KEY: z.string().optional(),
+  LLM_MODEL: z.string().default('claude-sonnet-4-5-20250929'),
+  LLM_MAX_TOKENS: z.coerce.number().int().min(1).default(1024),
+
+  // Swarm
+  NODE_ID: z.string().default(`node-${process.pid}`),
+  INTEL_CHANNEL_PREFIX: z.string().default('cyclawps'),
+  SWARM_ENABLED: z.coerce.boolean().default(false),
+
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
