@@ -1,81 +1,108 @@
 # CyclAwps Node
 
-Autonomous intelligence node for Solana. Runs a swarm of specialized AI agents that discover, evaluate, enter, monitor, and exit token positions — learning from every trade.
+Collective autonomous intelligence for Solana. A swarm of six AI agents that discover, analyze, enter, monitor, and exit positions across PumpFun — coordinating through a shared intelligence layer that gets smarter with every node that joins.
 
-Each node contributes raw on-chain observations to a shared intelligence layer. Every node benefits from the collective. Strategy stays private. Intelligence is shared.
+One node sees one chain. The network sees everything.
 
-Built on top of the [CyclAwps](https://github.com/controlborgs/cyclawps) core engine.
+Built on the [CyclAwps](https://github.com/controlborgs/cyclawps) execution engine.
 
-## Architecture
+## How It Works
+
+Every node runs six autonomous agents. Each agent has a single job and does it continuously. Together they form a closed-loop system — no human in the loop from discovery to exit.
+
+Across nodes, a shared intelligence layer aggregates deployer reputations, wallet relationship graphs, rug signals, and historical pattern outcomes. Your node's strategy is private. The collective intelligence is shared. More nodes = better signal = better decisions for everyone.
 
 ```
- ┌──────────────────────────────────────────┐
- │         Shared Intelligence Layer        │
- │     (Redis Streams across all nodes)     │
- │                                          │
- │  Deployer Scores │ Wallet Graph          │
- │  Rug Signals     │ Pattern Database      │
- └─────────┬────────────────────┬───────────┘
-           │                    │
-    ┌──────┴──────┐      ┌─────┴───────┐
-    │   Node A    │      │   Node B    │
-    └──────┬──────┘      └─────┬───────┘
-           │                   │
-   ┌───────┴───────────────────┘
-   │
-   │  Scout ──▶ Analyst ──▶ Strategist ──▶ Executor
-   │                                          │
-   │  Sentinel ───────────────────────────────┘
-   │       │
-   │  Memory ◀─── (outcomes from all agents)
-   │
+ ┌──────────────────────────────────────────────────────┐
+ │              Shared Intelligence Layer               │
+ │          (Redis Streams across all nodes)            │
+ │                                                      │
+ │  Deployer Scores  │  Wallet Graph  │  Rug Signals   │
+ │  Pattern Database │  Curve States  │  Threat Intel  │
+ └──────────┬───────────────┬──────────────┬───────────┘
+            │               │              │
+     ┌──────┴──────┐ ┌─────┴──────┐ ┌────┴───────┐
+     │   Node A    │ │   Node B   │ │   Node C   │
+     │   6 agents  │ │   6 agents │ │   6 agents │
+     └──────┬──────┘ └─────┬──────┘ └────┬───────┘
+            │               │              │
+            └───────────────┴──────────────┘
+                         │
+          Scout ──▶ Analyst ──▶ Strategist ──▶ Executor
+                                                  │
+          Sentinel ───────────────────────────────┘
+               │
+          Memory ◀─── (outcomes from all agents)
 ```
 
 ## Agents
 
-| Agent | Role | LLM | Tick |
-|-------|------|-----|------|
-| **Scout** | Crawls PumpFun for new launches, scores deployers, builds watchlist | No | 3s |
-| **Analyst** | Deep token analysis — conviction scoring, risk profiling | Yes | 2s |
-| **Strategist** | Portfolio-level decisions — position sizing, entry/skip | Yes | 2s |
-| **Sentinel** | Monitors open positions for threats — dev sells, LP removal, graph changes | Yes | 5s |
-| **Executor** | Builds, simulates, and sends transactions with priority queuing | No | 1s |
-| **Memory** | Records outcomes, tracks P&L, feeds learning back to agents | No | 10s |
+Six agents. Three use LLM reasoning. Three run pure compute. All tick continuously.
+
+| Agent | What it does | LLM | Tick |
+|-------|-------------|-----|------|
+| **Scout** | Crawls every PumpFun launch in real-time. Scores deployers against the collective reputation database. Flags anything above threshold to Analyst. | No | 3s |
+| **Analyst** | Deep-dives flagged tokens. Pulls bonding curve state, wallet graph clusters, pattern matches. Outputs a conviction score 0-100 with risk profile and recommended size. | Yes | 2s |
+| **Strategist** | Portfolio-level brain. Considers total exposure, win rate, consecutive losses, and correlation. Decides entry/skip with position sizing. Cuts size 50% after 3 consecutive losses. | Yes | 2s |
+| **Sentinel** | Watches every open position. Monitors dev wallet sell %, bonding curve completion, wallet cluster growth. Critical threats (>50% dev sell) bypass LLM — immediate exit. | Yes | 5s |
+| **Executor** | Priority queue. Critical exits first, then high, medium, low. Builds PumpFun instructions, simulates, sends with retry. Reports every outcome to Memory. | No | 1s |
+| **Memory** | Records every entry, exit, and P&L. Evaluates closed positions. Feeds outcome data back to Strategist so the system learns what works and what doesn't. Persists last 500 outcomes. | No | 10s |
 
 ## Intelligence Layer
 
-Every node contributes to and reads from a shared intelligence network:
+This is what separates CyclAwps from a bot. Every node contributes to and reads from a shared intelligence network that grows with the swarm:
 
-- **IntelBus** — Redis Streams for durable, ordered signal publishing across nodes
-- **DeployerScoreEngine** — Aggregated deployer reputation (rug rate, launch history, wallet clusters)
-- **WalletGraph** — Directed graph of wallet relationships with BFS cluster detection
-- **PatternDatabase** — Historical patterns with outcomes, queryable by agents before decisions
+- **IntelBus** — Durable signal bus over Redis Streams. Every deployer activity, rug detection, wallet edge, and curve snapshot is published to the network. Consumer groups ensure every node processes every signal exactly once.
+- **DeployerScoreEngine** — Reputation scores 0-100 for every deployer seen on-chain. Factors: rug rate (-40), launch count (+15), average token lifespan (+20), wallet cluster size (-15), recency decay. Stored in Redis sorted sets for sub-millisecond lookups.
+- **WalletGraph** — Directed graph of on-chain wallet relationships. Edge types: `funded_by`, `transferred_to`, `deployed_from`, `associated`. BFS cluster detection up to configurable depth. Finds connected wallets that on-chain explorers miss.
+- **PatternDatabase** — Historical pattern conditions with tracked outcomes. Agents query before every decision. Patterns sorted by `sampleSize * hitRate` — the system trusts patterns that have proven themselves over volume.
 
-## Dual Mode
+## Benchmarks
 
-The node runs in two modes:
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Event ingestion | **8ms** p95 | Solana WS to EventBus |
+| Policy evaluation | **0.3ms** | Cached state, deterministic |
+| TX simulation + send | **120ms** | Full Solana RPC round-trip |
+| Scout throughput | **300+** launches/hr | Every PumpFun launch, scored |
+| Analyst reasoning | **1.8s** avg | Full LLM analysis + risk profile |
+| DeployerScore lookup | **0.8ms** | Redis sorted set |
+| WalletGraph BFS | **4.2ms** | 3-depth cluster detection |
+| Cross-node signal | **12ms** p95 | Intel propagation via Redis Streams |
 
-- **Policy mode** (`SWARM_ENABLED=false`) — static rule-based automation, no LLM required. Uses the core [PolicyEngine](https://github.com/controlborgs/cyclawps#policy-engine) and [RiskEngine](https://github.com/controlborgs/cyclawps#risk-engine) only.
-- **Swarm mode** (`SWARM_ENABLED=true`) — all six agents active, LLM reasoning enabled, intelligence layer connected.
+*Mainnet-beta, Helius RPC, m6i.large. Scout throughput scales with PumpFun launch volume.*
+
+## Network Metrics
+
+Every node exposes aggregate telemetry. No strategy data. No positions. No wallet addresses.
+
+```
+GET /metrics/network
+```
+
+```json
+{
+  "nodesOnline": 47,
+  "agentsRunning": 282,
+  "deployersScored24h": 3841,
+  "walletGraphEdges": 128490,
+  "patternsRecorded24h": 1247,
+  "signalsShared24h": 24019,
+  "lastSignalAt": "2026-02-16T08:23:45.123Z"
+}
+```
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/controlborgs/cyclawps-node.git
 cd cyclawps-node
-
-# Dependencies
 npm install
-
-# Start Postgres and Redis
 docker compose up -d postgres redis
-
-# Configure
 cp .env.example .env
 ```
 
-Edit `.env` with your keys:
+Configure `.env`:
 
 ```bash
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
@@ -84,19 +111,18 @@ WALLET_PRIVATE_KEY=<base64-encoded-keypair>
 DATABASE_URL=postgresql://clawops:clawops@localhost:5432/clawops
 REDIS_URL=redis://localhost:6379
 
-# Enable agent swarm
+# Activate the swarm
 SWARM_ENABLED=true
 LLM_API_KEY=sk-ant-...
 LLM_MODEL=claude-sonnet-4-5-20250929
 ```
 
 ```bash
-# Run migrations
 npx prisma migrate dev
-
-# Start
 npm run dev
 ```
+
+Without `SWARM_ENABLED=true`, the node runs in policy-only mode — deterministic rules, no LLM, no agents. Set it to `true` with an API key to activate the full swarm.
 
 ## Usage
 
@@ -140,84 +166,11 @@ curl -X POST http://localhost:3100/policies \
   }'
 ```
 
-In swarm mode, the Scout discovers new launches and the full agent pipeline handles entry/exit autonomously. Manual positions and policies via API are also supported.
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SOLANA_RPC_URL` | Solana RPC endpoint | — |
-| `SOLANA_WS_URL` | Solana WebSocket endpoint | — |
-| `WALLET_PRIVATE_KEY` | Base64 encoded private key | — |
-| `WALLET_KEYPAIR_PATH` | Path to keypair JSON file | — |
-| `DATABASE_URL` | Postgres connection string | — |
-| `REDIS_URL` | Redis connection string | — |
-| `API_HOST` | API bind address | `0.0.0.0` |
-| `API_PORT` | API port | `3100` |
-| `MAX_POSITION_SIZE_SOL` | Max SOL per position | `1.0` |
-| `MAX_SLIPPAGE_BPS` | Max slippage in basis points | `300` |
-| `MAX_PRIORITY_FEE_LAMPORTS` | Max priority fee | `100000` |
-| `EXECUTION_COOLDOWN_MS` | Min time between executions | `5000` |
-| `SWARM_ENABLED` | Enable agent swarm mode | `false` |
-| `LLM_PROVIDER` | LLM provider | `anthropic` |
-| `LLM_API_KEY` | LLM API key (required for swarm) | — |
-| `LLM_MODEL` | Model for agent reasoning | `claude-sonnet-4-5-20250929` |
-| `LLM_MAX_TOKENS` | Max tokens per LLM call | `1024` |
-| `NODE_ID` | Unique node ID in the swarm | `node-{pid}` |
-| `INTEL_CHANNEL_PREFIX` | Redis stream prefix | `cyclawps` |
-| `LOG_LEVEL` | Pino log level | `info` |
-| `NODE_ENV` | Environment | `development` |
-
-Either `WALLET_PRIVATE_KEY` or `WALLET_KEYPAIR_PATH` must be set.
-
-Set `SWARM_ENABLED=true` and `LLM_API_KEY` to activate the agent swarm. Without these, the node runs in policy-only mode.
-
-## Benchmarks
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Event ingestion latency | **8ms** p95 | Solana WS to EventBus |
-| Policy evaluation | **0.3ms** | Cached state, deterministic rules |
-| TX simulation + send | **120ms** | Including Solana RPC round-trip |
-| Scout tick (3s) | **300+** launches/hr | New token discovery rate |
-| Analyst reasoning | **1.8s** avg | LLM analysis + risk profiling |
-| DeployerScore lookup | **0.8ms** | Redis sorted set + graph cache |
-| WalletGraph BFS | **4.2ms** | 3-depth cluster detection |
-| IntelBus signal latency | **12ms** p95 | Cross-node Redis Streams |
-
-*Measured on mainnet-beta, Helius RPC, m6i.large*
-
-## Network Metrics
-
-```
-GET /metrics/network
-```
-
-```json
-{
-  "nodesOnline": 12,
-  "agentsRunning": 72,
-  "deployersScored24h": 847,
-  "walletGraphEdges": 15293,
-  "patternsRecorded24h": 342,
-  "signalsShared24h": 4891,
-  "lastSignalAt": "2026-02-16T08:23:45.123Z"
-}
-```
-
-Aggregate network telemetry. No strategy data exposed.
+In swarm mode, the Scout discovers launches and the full pipeline handles everything autonomously. The API is for manual overrides and monitoring.
 
 ## Core Engine
 
-For details on the underlying policy engine, risk engine, execution engine, API endpoints, and database schema, see [cyclawps](https://github.com/controlborgs/cyclawps).
-
-## Testing
-
-```bash
-npm test
-```
-
-47 unit tests covering policy evaluation, risk enforcement, state management, event dispatch, and PumpFun bonding curve math.
+The execution layer underneath — policy engine, risk engine, transaction building, PumpFun integration, API, database schema — lives in [cyclawps](https://github.com/controlborgs/cyclawps).
 
 ## Tech Stack
 
