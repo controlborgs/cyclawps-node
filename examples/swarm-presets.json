@@ -1,0 +1,58 @@
+{
+  "default": {
+    "description": "Standard swarm configuration. All agents active, balanced tick rates.",
+    "SWARM_ENABLED": true,
+    "LLM_MODEL": "claude-sonnet-4-5-20250929",
+    "LLM_MAX_TOKENS": 1024,
+    "agents": {
+      "scout":      { "enabled": true, "tickIntervalMs": 3000 },
+      "analyst":    { "enabled": true, "tickIntervalMs": 2000 },
+      "strategist": { "enabled": true, "tickIntervalMs": 2000 },
+      "sentinel":   { "enabled": true, "tickIntervalMs": 5000 },
+      "executor":   { "enabled": true, "tickIntervalMs": 1000 },
+      "memory":     { "enabled": true, "tickIntervalMs": 10000 }
+    }
+  },
+  "scout-only": {
+    "description": "Discovery mode. Scout and Analyst only. No execution. Good for intelligence gathering.",
+    "SWARM_ENABLED": true,
+    "LLM_MODEL": "claude-sonnet-4-5-20250929",
+    "LLM_MAX_TOKENS": 1024,
+    "agents": {
+      "scout":      { "enabled": true, "tickIntervalMs": 2000 },
+      "analyst":    { "enabled": true, "tickIntervalMs": 1500 },
+      "strategist": { "enabled": false },
+      "sentinel":   { "enabled": false },
+      "executor":   { "enabled": false },
+      "memory":     { "enabled": true, "tickIntervalMs": 10000 }
+    }
+  },
+  "high-frequency": {
+    "description": "Aggressive tick rates. Higher LLM costs. For competitive environments.",
+    "SWARM_ENABLED": true,
+    "LLM_MODEL": "claude-sonnet-4-5-20250929",
+    "LLM_MAX_TOKENS": 2048,
+    "agents": {
+      "scout":      { "enabled": true, "tickIntervalMs": 1500 },
+      "analyst":    { "enabled": true, "tickIntervalMs": 1000 },
+      "strategist": { "enabled": true, "tickIntervalMs": 1000 },
+      "sentinel":   { "enabled": true, "tickIntervalMs": 2000 },
+      "executor":   { "enabled": true, "tickIntervalMs": 500 },
+      "memory":     { "enabled": true, "tickIntervalMs": 5000 }
+    }
+  },
+  "sentinel-heavy": {
+    "description": "Prioritizes position protection. Sentinel ticks faster, slower discovery.",
+    "SWARM_ENABLED": true,
+    "LLM_MODEL": "claude-sonnet-4-5-20250929",
+    "LLM_MAX_TOKENS": 1024,
+    "agents": {
+      "scout":      { "enabled": true, "tickIntervalMs": 5000 },
+      "analyst":    { "enabled": true, "tickIntervalMs": 3000 },
+      "strategist": { "enabled": true, "tickIntervalMs": 3000 },
+      "sentinel":   { "enabled": true, "tickIntervalMs": 2000 },
+      "executor":   { "enabled": true, "tickIntervalMs": 500 },
+      "memory":     { "enabled": true, "tickIntervalMs": 10000 }
+    }
+  }
+}

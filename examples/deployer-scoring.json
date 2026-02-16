@@ -1,0 +1,65 @@
+{
+  "description": "How deployer reputation scores are computed. Scores range 0-100.",
+  "baseScore": 50,
+  "factors": [
+    {
+      "name": "Rug rate",
+      "weight": -40,
+      "description": "Percentage of past tokens that rugged. 100% rug rate = -40 points.",
+      "example": { "rugRate": 0.5, "impact": -20 }
+    },
+    {
+      "name": "Launch count",
+      "weight": "+1.5 per launch, max +15",
+      "description": "More launches = more data = more trust. Caps at 10 launches.",
+      "example": { "totalLaunches": 8, "impact": 12 }
+    },
+    {
+      "name": "Average token lifespan",
+      "weight": "+2 per hour, max +20",
+      "description": "Longer average lifespan = tokens that don't die fast = more trustworthy.",
+      "example": { "avgLifespanHours": 6, "impact": 12 }
+    },
+    {
+      "name": "Connected wallets",
+      "weight": "-3 per connection, max -15",
+      "description": "More wallet connections = more suspicious clustering behavior.",
+      "example": { "connectedWallets": 3, "impact": -9 }
+    },
+    {
+      "name": "Recency decay",
+      "weight": "-0.5 per day after 7 days, max -10",
+      "description": "Stale deployers lose trust over time. Resets on new activity.",
+      "example": { "daysSinceLastSeen": 14, "impact": -3.5 }
+    }
+  ],
+  "exampleScores": {
+    "trusted_deployer": {
+      "totalLaunches": 12,
+      "rugCount": 1,
+      "rugRate": 0.083,
+      "avgTokenLifespanHours": 48,
+      "connectedWallets": 1,
+      "daysSinceLastSeen": 2,
+      "computedScore": 81
+    },
+    "suspicious_deployer": {
+      "totalLaunches": 6,
+      "rugCount": 4,
+      "rugRate": 0.667,
+      "avgTokenLifespanHours": 0.5,
+      "connectedWallets": 5,
+      "daysSinceLastSeen": 1,
+      "computedScore": 12
+    },
+    "new_deployer": {
+      "totalLaunches": 1,
+      "rugCount": 0,
+      "rugRate": 0,
+      "avgTokenLifespanHours": 0,
+      "connectedWallets": 0,
+      "daysSinceLastSeen": 0,
+      "computedScore": 52
+    }
+  }
+}
