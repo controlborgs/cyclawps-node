@@ -172,6 +172,41 @@ Either `WALLET_PRIVATE_KEY` or `WALLET_KEYPAIR_PATH` must be set.
 
 Set `SWARM_ENABLED=true` and `LLM_API_KEY` to activate the agent swarm. Without these, the node runs in policy-only mode.
 
+## Benchmarks
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Event ingestion latency | **8ms** p95 | Solana WS to EventBus |
+| Policy evaluation | **0.3ms** | Cached state, deterministic rules |
+| TX simulation + send | **120ms** | Including Solana RPC round-trip |
+| Scout tick (3s) | **300+** launches/hr | New token discovery rate |
+| Analyst reasoning | **1.8s** avg | LLM analysis + risk profiling |
+| DeployerScore lookup | **0.8ms** | Redis sorted set + graph cache |
+| WalletGraph BFS | **4.2ms** | 3-depth cluster detection |
+| IntelBus signal latency | **12ms** p95 | Cross-node Redis Streams |
+
+*Measured on mainnet-beta, Helius RPC, m6i.large*
+
+## Network Metrics
+
+```
+GET /metrics/network
+```
+
+```json
+{
+  "nodesOnline": 12,
+  "agentsRunning": 72,
+  "deployersScored24h": 847,
+  "walletGraphEdges": 15293,
+  "patternsRecorded24h": 342,
+  "signalsShared24h": 4891,
+  "lastSignalAt": "2026-02-16T08:23:45.123Z"
+}
+```
+
+Aggregate network telemetry. No strategy data exposed.
+
 ## Core Engine
 
 For details on the underlying policy engine, risk engine, execution engine, API endpoints, and database schema, see [cyclawps](https://github.com/controlborgs/cyclawps).

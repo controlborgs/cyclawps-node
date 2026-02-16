@@ -85,6 +85,8 @@ async function main(): Promise<void> {
 
   // --- Agent Swarm ---
   let swarm: Swarm | null = null;
+  let deployerScores: DeployerScoreEngine | null = null;
+  let patternDb: PatternDatabase | null = null;
 
   if (env.SWARM_ENABLED && env.LLM_API_KEY) {
     logger.info('Swarm mode enabled — initializing agents');
@@ -105,9 +107,9 @@ async function main(): Promise<void> {
       { nodeId: env.NODE_ID, channelPrefix: env.INTEL_CHANNEL_PREFIX },
       logger,
     );
-    const deployerScores = new DeployerScoreEngine(redis, logger);
+    deployerScores = new DeployerScoreEngine(redis, logger);
     const walletGraph = new WalletGraph(redis, logger);
-    const patternDb = new PatternDatabase(redis, logger);
+    patternDb = new PatternDatabase(redis, logger);
 
     // Create agents
     const scout = new ScoutAgent(
@@ -174,7 +176,10 @@ async function main(): Promise<void> {
   }
 
   // API server
-  const server = await createServer({ container, policyEngine, eventIngestion, pumpfun, stateEngine });
+  const server = await createServer({
+    container, policyEngine, eventIngestion, pumpfun, stateEngine,
+    metrics: { deployerScores, patternDb, swarm },
+  });
   await server.listen({ host: env.API_HOST, port: env.API_PORT });
   logger.info({ host: env.API_HOST, port: env.API_PORT }, 'API server listening');
 

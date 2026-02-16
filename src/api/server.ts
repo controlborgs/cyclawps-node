@@ -10,6 +10,8 @@ import { policyRoutes } from './routes/policies.js';
 import { positionRoutes } from './routes/positions.js';
 import { executionRoutes } from './routes/executions.js';
 import { walletRoutes } from './routes/wallets.js';
+import { metricsRoutes } from './routes/metrics.js';
+import type { MetricsDeps } from './routes/metrics.js';
 
 export interface ServerDeps {
   container: Container;
@@ -17,6 +19,7 @@ export interface ServerDeps {
   eventIngestion: EventIngestionService;
   pumpfun: PumpFunService;
   stateEngine: StateEngine;
+  metrics?: MetricsDeps;
 }
 
 export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
@@ -70,6 +73,13 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   await positionRoutes(app, container, pumpfun, stateEngine);
   await executionRoutes(app, container);
   await walletRoutes(app, container, eventIngestion);
+
+  // Metrics (intelligence layer — optional deps)
+  await metricsRoutes(app, container, deps.metrics ?? {
+    deployerScores: null,
+    patternDb: null,
+    swarm: null,
+  });
 
   return app;
 }
